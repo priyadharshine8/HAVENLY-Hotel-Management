@@ -1,9 +1,8 @@
 
 import axios from "axios";
 
-const API_URL = "http://localhost:5000/api";
-const API_ORIGIN = "http://localhost:5000";
-
+const API_URL = "https://havenly-hotel-management.onrender.com/api";
+const API_ORIGIN = "https://havenly-hotel-management.onrender.com";
 const hotelApi = axios.create({
   baseURL: API_URL,
   headers: {
