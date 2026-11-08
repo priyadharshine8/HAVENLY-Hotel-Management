@@ -9,7 +9,10 @@ import {
   toggleWishlist
 } from "../redux/hotelSlice";
 
-import { removeHotel } from "../services/hotelApi";
+import {
+  removeHotel,
+  getImageUrl
+} from "../services/hotelApi";
 
 import {
   Search,
@@ -36,7 +39,10 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
       Math.cos(toRadians(lat2)) *
       Math.sin(dLon / 2) ** 2;
 
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const c = 2 * Math.atan2(
+    Math.sqrt(a),
+    Math.sqrt(1 - a)
+  );
 
   return earthRadius * c;
 };
@@ -69,17 +75,12 @@ function Hotels() {
   const [currentPage, setCurrentPage] = useState(1);
   const hotelsPerPage = 6;
 
-  // Get local hotel image
+  // Always use the actual saved hotel image
   const getHotelImage = (hotel) => {
-    const hotelIndex = hotels.findIndex(
-      (item) => item.id === hotel.id
+    return (
+      getImageUrl(hotel.image) ||
+      "https://placehold.co/600x400?text=Hotel"
     );
-
-    if (hotelIndex >= 0 && hotelIndex < 8) {
-      return `/hotel-images/hotel${hotelIndex + 1}/main.jpg`;
-    }
-
-    return hotel.image || "https://placehold.co/600x400?text=Hotel";
   };
 
   // Reset page when filters change
@@ -156,7 +157,8 @@ function Hotels() {
             longitude
           );
 
-          matchesNearby = distance <= Number(nearbyRadius);
+          matchesNearby =
+            distance <= Number(nearbyRadius);
         }
       }
 
@@ -202,7 +204,9 @@ function Hotels() {
   // Get user's current location
   const handleGetLocation = () => {
     if (!navigator.geolocation) {
-      toast.error("Geolocation is not supported by your browser.");
+      toast.error(
+        "Geolocation is not supported by your browser."
+      );
       return;
     }
 
@@ -218,8 +222,9 @@ function Hotels() {
         setUserLocation(location);
         setLocationLoading(false);
 
-        toast.success("Your location detected successfully!");
-        console.log("User Location:", location);
+        toast.success(
+          "Your location detected successfully!"
+        );
       },
       (error) => {
         setLocationLoading(false);
@@ -260,9 +265,13 @@ function Hotels() {
       try {
         await removeHotel(id);
         dispatch(deleteHotel(id));
-        toast.success("Property deleted successfully!");
+
+        toast.success(
+          "Property deleted successfully!"
+        );
       } catch (error) {
         console.error("Hotel delete error:", error);
+
         toast.error(
           "Unable to delete property. Please try again."
         );
@@ -366,7 +375,8 @@ function Hotels() {
           className="primary-button"
           onClick={() => navigate("/hotels/new")}
         >
-          <Plus size={18} /> Add Property
+          <Plus size={18} />
+          Add Property
         </button>
 
       </div>
@@ -382,11 +392,16 @@ function Hotels() {
           const isWishlisted = wishlistIds.includes(hotel.id);
 
           return (
-            <article className="hotel-card" key={hotel.id}>
+            <article
+              className="hotel-card"
+              key={hotel.id}
+            >
 
               <button
                 className="hotel-image-link"
-                onClick={() => navigate(`/hotels/${hotel.id}`)}
+                onClick={() =>
+                  navigate(`/hotels/${hotel.id}`)
+                }
                 aria-label={`View ${hotel.title} details`}
               >
                 <img
@@ -395,7 +410,6 @@ function Hotels() {
                   onError={(e) => {
                     e.currentTarget.onerror = null;
                     e.currentTarget.src =
-                      hotel.image ||
                       "https://placehold.co/600x400?text=Hotel";
                   }}
                 />
@@ -407,11 +421,15 @@ function Hotels() {
 
               <div className="hotel-card-content">
 
-                <p className="eyebrow">{hotel.location}</p>
+                <p className="eyebrow">
+                  {hotel.location}
+                </p>
 
                 <button
                   className="hotel-title-link"
-                  onClick={() => navigate(`/hotels/${hotel.id}`)}
+                  onClick={() =>
+                    navigate(`/hotels/${hotel.id}`)
+                  }
                 >
                   {hotel.title}
                 </button>
@@ -424,7 +442,8 @@ function Hotels() {
                   (section) => section.panorama
                 ) && (
                   <p className="hotel-tour-available">
-                    <Compass size={14} /> 360° Tour Available
+                    <Compass size={14} />
+                    360° Tour Available
                   </p>
                 )}
 
@@ -451,12 +470,16 @@ function Hotels() {
                           ? "Remove from wishlist"
                           : "Add to wishlist"
                       }
-                      onClick={() => handleWishlist(hotel.id)}
+                      onClick={() =>
+                        handleWishlist(hotel.id)
+                      }
                     >
                       <Heart
                         size={17}
                         fill={
-                          isWishlisted ? "currentColor" : "none"
+                          isWishlisted
+                            ? "currentColor"
+                            : "none"
                         }
                       />
                     </button>
@@ -474,7 +497,9 @@ function Hotels() {
                     <button
                       className="icon-button delete-icon"
                       title="Delete property"
-                      onClick={() => handleDelete(hotel.id)}
+                      onClick={() =>
+                        handleDelete(hotel.id)
+                      }
                     >
                       <Trash2 size={17} />
                     </button>
@@ -504,7 +529,9 @@ function Hotels() {
 
           <button
             disabled={currentPage === 1}
-            onClick={() => setCurrentPage((prev) => prev - 1)}
+            onClick={() =>
+              setCurrentPage((prev) => prev - 1)
+            }
           >
             Previous
           </button>
@@ -516,7 +543,9 @@ function Hotels() {
             <button
               key={page}
               className={
-                currentPage === page ? "active-page" : ""
+                currentPage === page
+                  ? "active-page"
+                  : ""
               }
               onClick={() => setCurrentPage(page)}
             >
@@ -526,7 +555,9 @@ function Hotels() {
 
           <button
             disabled={currentPage === totalPages}
-            onClick={() => setCurrentPage((prev) => prev + 1)}
+            onClick={() =>
+              setCurrentPage((prev) => prev + 1)
+            }
           >
             Next
           </button>
