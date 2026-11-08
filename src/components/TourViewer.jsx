@@ -17,75 +17,72 @@ function TourViewer({ panorama, title, onClose }) {
   useEffect(() => {
     const container = containerRef.current;
 
-    if (!container || !panorama) return;
+    if (!container || !panorama) {
+      setLoading(false);
+      setError("Panorama image path is missing.");
+      return;
+    }
 
     let viewer;
     let cancelled = false;
 
-    setLoading(true);
-    setError("");
+    async function initializeViewer() {
+      setLoading(true);
+      setError("");
 
-    try {
-      console.log("Starting 360 viewer...");
-      console.log("Panorama:", panorama);
-      console.log("Container size:", container.clientWidth, container.clientHeight);
+      try {
+        console.log("Starting Photo Sphere Viewer...");
+        console.log("Image path:", panorama);
 
-      // Initialize viewer without panorama first
-      viewer = new Viewer({
-        container,
-        adapter: EquirectangularAdapter,
-        navbar: ["zoom", "move", "fullscreen"],
-        loadingTxt: "Loading 360° experience...",
-      });
-
-      viewer.addEventListener("panorama-load", () => {
-        console.log("Panorama loading started");
-      });
-
-      viewer.addEventListener("panorama-loaded", () => {
-        console.log("Panorama loaded successfully");
-      });
-
-      viewer.addEventListener("ready", () => {
-        console.log("360 viewer ready");
-      });
-
-      viewer.addEventListener("panorama-error", (event) => {
-        console.error("Panorama error:", event);
-      });
-
-      // Explicitly load panorama and check its Promise
-      viewer
-        .setPanorama(panorama)
-        .then((success) => {
-          console.log("setPanorama result:", success);
-
-          if (!cancelled && success) {
-            setLoading(false);
-            setError("");
-          }
-        })
-        .catch((err) => {
-          console.error("Panorama loading failed:", err);
-
-          if (!cancelled) {
-            setLoading(false);
-            setError(err.message || "Unable to load panorama.");
-          }
+        // Initialize viewer without loading an image
+        viewer = new Viewer({
+          container,
+          adapter: EquirectangularAdapter,
+          navbar: ["zoom", "move", "fullscreen"],
+          loadingTxt: "Loading 360° experience...",
+          defaultZoomLvl: 50,
         });
 
-    } catch (err) {
-      console.error("Viewer initialization error:", err);
+        console.log("Viewer initialized.");
 
-      setLoading(false);
-      setError(err.message || "Unable to initialize viewer.");
+        // Load the panorama only once
+        const result = await viewer.setPanorama(panorama);
+
+        console.log("Panorama loading result:", result);
+
+        if (cancelled) return;
+
+        if (result === true) {
+          setLoading(false);
+          setError("");
+          console.log("360° panorama loaded!");
+        } else {
+          setLoading(false);
+          setError(
+            "Panorama loading was cancelled. Please close and reopen the viewer."
+          );
+          console.warn("Panorama loading returned false.");
+        }
+      } catch (err) {
+        console.error("360° loading error:", err);
+
+        if (!cancelled) {
+          setLoading(false);
+          setError(
+            err?.message || "Unable to load the panorama image."
+          );
+        }
+      }
     }
+
+    initializeViewer();
 
     return () => {
       cancelled = true;
 
       if (viewer) {
         viewer.destroy();
+        viewer = null;
       }
     };
   }, [panorama]);
@@ -102,19 +99,25 @@ function TourViewer({ panorama, title, onClose }) {
         <div className="tour-modal-header">
           <h3>{title || "360° Virtual Experience"}</h3>
 
-          <button type="button" onClick={onClose}>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close viewer"
+          >
             ✕
           </button>
         </div>
 
-        {loading && !error && (
+        {loading && (
           <p className="tour-loading">
             Loading 360° experience...
           </p>
         )}
 
         {error && (
-          <p className="tour-error">{error}</p>
+          <p className="tour-error">
+            {error}
+          </p>
         )}
 
         <div

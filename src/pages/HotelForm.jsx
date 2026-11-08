@@ -4,6 +4,12 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { addHotel, updateHotel } from "../redux/hotelSlice";
 import {
+  createHotel,
+  editHotel as updateHotelApi,
+  uploadImage,
+  getImageUrl,
+} from "../services/hotelApi";
+import {
   ArrowLeft,
   Upload,
   Compass,
@@ -24,13 +30,14 @@ function HotelForm() {
   const dispatch = useDispatch();
   const { id } = useParams();
 
-  const hotels = useSelector((state) => state.hotels?.hotels || []);
+  const hotels = useSelector(
+    (state) => state.hotels?.hotels || []
+  );
 
   const existingHotel = hotels.find(
     (hotel) => String(hotel.id) === String(id)
   );
 
-  // Initial form data
   const [form, setForm] = useState(() => ({
     title: existingHotel?.title || "",
     description: existingHotel?.description || "",
@@ -46,15 +53,18 @@ function HotelForm() {
         existingHotel?.tourSections?.find(
           (section) => section.id === area.id
         )?.panorama ||
-        (area.id === "lobby" ? existingHotel?.tourImage || "" : ""),
+        (area.id === "lobby"
+          ? existingHotel?.tourImage || ""
+          : ""),
     })),
   }));
 
   const [preview, setPreview] = useState(
-    existingHotel?.image || ""
+    getImageUrl(existingHotel?.image || "")
   );
 
-  // Update normal form fields
+  const [uploading, setUploading] = useState(false);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
 
@@ -64,8 +74,8 @@ function HotelForm() {
     }));
   };
 
-  // Upload hotel cover image
-  const handleImage = (e) => {
+  // Upload hotel cover image to backend
+  const handleImage = async (e) => {
     const file = e.target.files?.[0];
 
     if (!file) return;
@@ -82,20 +92,37 @@ function HotelForm() {
       return;
     }
 
-    const reader = new FileReader();
+    setUploading(true);
 
-    reader.onloadend = () => {
-      const imageData = reader.result;
+    try {
+      const result = await uploadImage(file);
 
-      setPreview(imageData);
+      if (!result.success) {
+        throw new Error(result.message || "Image upload failed");
+      }
 
+      // Save relative image path in form
       setForm((previous) => ({
         ...previous,
-        image: imageData,
+        image: result.image,
       }));
-    };
 
-    reader.readAsDataURL(file);
+      // Display uploaded image in preview
+      setPreview(getImageUrl(result.image));
+
+      alert("Image uploaded successfully!");
+    } catch (error) {
+      console.error("Image upload error:", error);
+
+      alert(
+        error.response?.data?.message ||
+        error.message ||
+        "Unable to upload image."
+      );
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
   };
 
   // Update individual 360 panorama URL
@@ -111,8 +138,13 @@ function HotelForm() {
   };
 
   // Validate and save hotel
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (uploading) {
+      alert("Please wait until image upload finishes.");
+      return;
+    }
 
     const latitude = Number(form.latitude);
     const longitude = Number(form.longitude);
@@ -142,20 +174,21 @@ function HotelForm() {
     }
 
     // Validate panorama URLs
-    for (const section of form.tourSections) {
-      if (!section.panorama.trim()) continue;
+    // Validate panorama paths
+for (const section of form.tourSections) {
+  if (!section.panorama.trim()) continue;
 
-      try {
-        const url = new URL(section.panorama);
+  const path = section.panorama.trim();
 
-        if (url.protocol !== "https:" && url.protocol !== "http:") {
-          throw new Error("Invalid URL");
-        }
-      } catch {
-        alert(`Please enter a valid URL for ${section.title}.`);
-        return;
-      }
-    }
+  if (
+    !path.startsWith("/hotel-images/") &&
+    !path.startsWith("https://") &&
+    !path.startsWith("http://")
+  ) {
+    alert(`Please enter a valid image path for ${section.title}.`);
+    return;
+  }
+}
 
     const hotelData = {
       ...form,
@@ -171,15 +204,31 @@ function HotelForm() {
       })),
     };
 
-    if (existingHotel) {
-      dispatch(updateHotel(hotelData));
-      alert("Property updated successfully!");
-    } else {
-      dispatch(addHotel(hotelData));
-      alert("Property added successfully!");
-    }
+    // Save to PostgreSQL first
+    try {
+      if (existingHotel) {
+        await updateHotelApi(existingHotel.id, hotelData);
 
-    navigate("/hotels");
+        dispatch(updateHotel(hotelData));
+
+        alert("Property updated successfully!");
+      } else {
+        await createHotel(hotelData);
+
+        dispatch(addHotel(hotelData));
+
+        alert("Property added successfully!");
+      }
+
+      navigate("/hotels");
+    } catch (error) {
+      console.error("Hotel save error:", error);
+
+      alert(
+        error.response?.data?.message ||
+        "Unable to save property. Please try again."
+      );
+    }
   };
 
   return (
@@ -300,7 +349,11 @@ function HotelForm() {
           <label className="upload-area">
             <Upload size={25} />
 
-            <span>Click to upload property image</span>
+            <span>
+              {uploading
+                ? "Uploading image..."
+                : "Click to upload property image"}
+            </span>
 
             <small>JPG, PNG or WEBP · Maximum 2 MB</small>
 
@@ -308,6 +361,7 @@ function HotelForm() {
               type="file"
               accept="image/jpeg,image/png,image/webp"
               onChange={handleImage}
+              disabled={uploading}
               hidden
             />
           </label>
@@ -393,10 +447,13 @@ function HotelForm() {
           <button
             type="submit"
             className="primary-button"
+            disabled={uploading}
           >
-            {existingHotel
-              ? "Save Changes"
-              : "Create Property"}
+            {uploading
+              ? "Uploading Image..."
+              : existingHotel
+                ? "Save Changes"
+                : "Create Property"}
           </button>
         </div>
       </form>

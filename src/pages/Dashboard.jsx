@@ -25,14 +25,13 @@ import {
 } from "recharts";
 
 function Dashboard() {
-  // Correct Redux state reference
   const hotels = useSelector(
     (state) => state.hotels?.hotels || []
   );
 
   const navigate = useNavigate();
 
-  // Calculate average property price
+  // Average property price
   const averagePrice = hotels.length
     ? Math.round(
         hotels.reduce(
@@ -42,7 +41,7 @@ function Dashboard() {
       )
     : 0;
 
-  // Group properties by location
+  // Properties grouped by location
   const locationData = useMemo(() => {
     const grouped = {};
 
@@ -58,7 +57,7 @@ function Dashboard() {
     }));
   }, [hotels]);
 
-  // Get five highest-priced properties
+  // Five highest-priced properties
   const priceData = useMemo(() => {
     return [...hotels]
       .sort(
@@ -79,14 +78,14 @@ function Dashboard() {
       });
   }, [hotels]);
 
-  // Calculate highest property price
+  // Highest property price
   const highestPrice = hotels.length
     ? Math.max(
         ...hotels.map((hotel) => Number(hotel.price) || 0)
       )
     : 0;
 
-  // Calculate available 360 tours
+  // Properties with 360 tours
   const propertiesWithTours = hotels.filter((hotel) =>
     hotel.tourSections?.some((section) => section.panorama)
   ).length;
@@ -358,17 +357,18 @@ function Dashboard() {
 
         {hotels.length > 0 ? (
           <div className="dashboard-hotel-grid">
-            {hotels.slice(0, 3).map((hotel) => (
+            {hotels.slice(0, 3).map((hotel, index) => (
               <article
                 className="dashboard-hotel-card"
                 key={hotel.id}
               >
                 <img
-                  src={
-                    hotel.image ||
-                    "https://placehold.co/600x400?text=HAVENLY"
-                  }
+                  src={`/hotel-images/hotel${index + 1}/main.jpg`}
                   alt={hotel.title || "Hotel property"}
+                  onError={(e) => {
+                    e.currentTarget.src =
+                      "https://placehold.co/600x400?text=HAVENLY";
+                  }}
                 />
 
                 <div className="dashboard-hotel-info">

@@ -24,3 +24,9 @@ dist-ssr
 *.sw?
 .env
 hotel-management.zip
+.env
+.env.*
+!.env.example
+
+server/uploads/
+node_modules/

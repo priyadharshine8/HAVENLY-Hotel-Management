@@ -124,6 +124,22 @@ const hotelSlice = createSlice({
   initialState,
 
   reducers: {
+    setHotels: (state, action) => {
+  state.hotels = action.payload.map((hotel) => ({
+    ...hotel,
+    reviews: Array.isArray(hotel.reviews)
+      ? hotel.reviews
+      : [],
+    tourSections: TOUR_AREAS.map((area) => ({
+      ...area,
+      ...(hotel.tourSections?.find(
+        (section) => section.id === area.id
+      ) || {}),
+    })),
+  }));
+
+  saveHotels(state.hotels);
+},
     addHotel: (state, action) => {
       state.hotels.push({
         ...action.payload,
@@ -208,6 +224,7 @@ const hotelSlice = createSlice({
 });
 
 export const {
+  setHotels,
   addHotel,
   updateHotel,
   deleteHotel,

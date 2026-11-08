@@ -84,7 +84,7 @@ function Locations() {
                       hotel.image ||
                       "https://placehold.co/500x300?text=HAVENLY"
                     }
-                    alt={hotel.title}
+                    alt={hotel.title || "Hotel property"}
                   />
 
                   <div className="map-popup-content">
