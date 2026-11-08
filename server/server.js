@@ -3,34 +3,31 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path");
 const multer = require("multer");
+const { randomUUID } = require("crypto");
 require("dotenv").config();
+
+const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
 const pool = require("./db");
-const { randomUUID } = require("crypto");
+
+// Supabase connection
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SECRET_KEY
+);
 
 app.use(cors());
 app.use(express.json());
 
-// Serve uploaded images
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
-// Multer image storage configuration
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, "uploads"));
-  },
-  filename: (req, file, cb) => {
-    const extension = path.extname(file.originalname).toLowerCase();
-    cb(null, `${Date.now()}-${randomUUID()}${extension}`);
-  },
-});
+// Multer memory storage configuration
+const storage = multer.memoryStorage();
 
 // Allow only image files
 const upload = multer({
   storage,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5 MB
+    fileSize: 5 * 1024 * 1024,
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
@@ -48,10 +45,12 @@ const upload = multer({
   },
 });
 
+// Home
 app.get("/", (req, res) => {
   res.send("HAVENLY Backend is running!");
 });
 
+// Health check
 app.get("/api/health", (req, res) => {
   res.json({
     success: true,
@@ -59,9 +58,11 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+// Database test
 app.get("/api/db-test", async (req, res) => {
   try {
     const result = await pool.query("SELECT NOW()");
+
     res.json({
       success: true,
       message: "PostgreSQL connected successfully!",
@@ -69,6 +70,7 @@ app.get("/api/db-test", async (req, res) => {
     });
   } catch (error) {
     console.error(error.message);
+
     res.status(500).json({
       success: false,
       message: "Database connection failed",
@@ -76,9 +78,9 @@ app.get("/api/db-test", async (req, res) => {
   }
 });
 
-// Upload hotel image
+// Upload hotel image to Supabase Storage
 app.post("/api/upload", (req, res) => {
-  upload.single("image")(req, res, (error) => {
+  upload.single("image")(req, res, async (error) => {
     if (error) {
       return res.status(400).json({
         success: false,
@@ -93,11 +95,40 @@ app.post("/api/upload", (req, res) => {
       });
     }
 
-    res.status(201).json({
-      success: true,
-      message: "Image uploaded successfully!",
-      image: `/uploads/${req.file.filename}`,
-    });
+    try {
+      const extension = path.extname(req.file.originalname).toLowerCase();
+
+      const fileName = `hotels/${Date.now()}-${randomUUID()}${extension}`;
+
+      const { data, error } = await supabase.storage
+        .from("hotel-images")
+        .upload(fileName, req.file.buffer, {
+          contentType: req.file.mimetype,
+          upsert: false,
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      const { data: publicData } = supabase.storage
+        .from("hotel-images")
+        .getPublicUrl(data.path);
+
+      res.status(201).json({
+        success: true,
+        message: "Image uploaded successfully!",
+        image: publicData.publicUrl,
+      });
+
+    } catch (error) {
+      console.error("Supabase upload error:", error.message);
+
+      res.status(500).json({
+        success: false,
+        message: "Image upload failed",
+      });
+    }
   });
 });
 
@@ -127,6 +158,7 @@ app.get("/api/hotels", async (req, res) => {
     });
   } catch (error) {
     console.error("GET hotels error:", error.message);
+
     res.status(500).json({
       success: false,
       message: "Failed to fetch hotels",
@@ -198,6 +230,7 @@ app.post("/api/hotels", async (req, res) => {
     });
   } catch (error) {
     console.error("POST hotels error:", error.message);
+
     res.status(500).json({
       success: false,
       message: "Failed to add hotel",
@@ -268,13 +301,20 @@ app.put("/api/hotels/:id", async (req, res) => {
       });
     }
 
+    const hotel = result.rows[0];
+
     res.json({
       success: true,
       message: "Hotel updated successfully!",
-      hotel: result.rows[0],
+      hotel: {
+        ...hotel,
+        price: Number(hotel.price),
+        tourSections: hotel.tour_sections,
+      },
     });
   } catch (error) {
     console.error("PUT hotels error:", error.message);
+
     res.status(500).json({
       success: false,
       message: "Failed to update hotel",
@@ -303,12 +343,14 @@ app.delete("/api/hotels/:id", async (req, res) => {
     });
   } catch (error) {
     console.error("DELETE hotels error:", error.message);
+
     res.status(500).json({
       success: false,
       message: "Failed to delete hotel",
     });
   }
 });
+
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {

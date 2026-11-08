@@ -1,8 +1,15 @@
 
 import axios from "axios";
 
-const API_URL = "https://havenly-hotel-management.onrender.com/api";
-const API_ORIGIN = "https://havenly-hotel-management.onrender.com";
+// Local development and live deployment API URLs
+const API_URL = import.meta.env.DEV
+  ? "http://localhost:5000/api"
+  : "https://havenly-hotel-management.onrender.com/api";
+
+const API_ORIGIN = import.meta.env.DEV
+  ? "http://localhost:5000"
+  : "https://havenly-hotel-management.onrender.com";
+
 const hotelApi = axios.create({
   baseURL: API_URL,
   headers: {
@@ -34,7 +41,7 @@ export const removeHotel = async (id) => {
   return response.data;
 };
 
-// POST - Upload image
+// POST - Upload image to Supabase
 export const uploadImage = async (file) => {
   const formData = new FormData();
   formData.append("image", file);
